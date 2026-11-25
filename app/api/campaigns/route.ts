@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
-import { campaignContentSchema } from '@/lib/validations/campaign';
+import { campaignContentSchema } from '@/lib/validations';
 
 export async function POST(request: Request) {
   const user = await requireAdmin();

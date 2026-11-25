@@ -4,7 +4,7 @@ import { getUnsubscribeUrl } from '@/lib/email/unsubscribe';
 import { renderCampaignTemplate } from '@/lib/email/templates/campaign';
 import { sendEmail } from '@/lib/brevo/client';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { campaignIdSchema } from '@/lib/validations/campaign';
+import { campaignIdSchema } from '@/lib/validations';
 import { getLocale, getTranslations } from 'next-intl/server';
 
 export const maxDuration = 60;

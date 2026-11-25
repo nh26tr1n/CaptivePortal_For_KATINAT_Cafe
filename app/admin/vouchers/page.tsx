@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getVouchers } from '@/services/voucher.service';
+import { getVouchers } from '@/lib/services/voucher.service';
 
 export default async function VouchersPage() {
   const [{ vouchers, stats }, t, common, locale] = await Promise.all([
@@ -18,9 +18,12 @@ export default async function VouchersPage() {
     [t('voucherRedeemedCount'), stats?.redeemed ?? null],
     [t('voucherExpiredCount'), stats?.expired ?? null]
   ] as const;
-  const formatDate = (value: string | null) => value
-    ? new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(value))
-    : common('noData');
+  const formatDate = (value: string | null) => {
+    if (!value) return common('noData');
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return common('noData');
+    return new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
+  };
   const formatDiscount = (type: string, value: number) => type === 'percent'
     ? `${new Intl.NumberFormat(language, { maximumFractionDigits: 2 }).format(value)}%`
     : new Intl.NumberFormat(language, { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);

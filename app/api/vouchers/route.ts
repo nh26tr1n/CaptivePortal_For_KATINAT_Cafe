@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { voucherCreateSchema } from '@/lib/validations/voucher';
+import { voucherCreateSchema } from '@/lib/validations';
 
 export async function POST(request: Request) {
   const user = await requireAdmin();

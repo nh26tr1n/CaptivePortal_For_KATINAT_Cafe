@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { AdminDevice } from '@/services/customer.service';
+import type { AdminDevice } from '@/types';
 
 export async function DevicesTable({ devices }: { devices: AdminDevice[] }) {
   const [t, common, locale] = await Promise.all([

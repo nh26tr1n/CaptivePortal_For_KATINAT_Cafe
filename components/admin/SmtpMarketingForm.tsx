@@ -15,6 +15,17 @@ type CsvRow = Record<string, string | undefined>;
 type SendSummary = { sent: number; failed: number; skipped: number };
 const BATCH_SIZE = 20;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SMTP_ERROR_CODES = new Set([
+  'unauthorized',
+  'invalid_origin',
+  'invalid_json',
+  'invalid_request',
+  'no_consented_recipients',
+  'smtp_auth_failed',
+  'smtp_connection_failed',
+  'database_unavailable',
+  'consent_lookup_failed'
+]);
 
 export function SmtpMarketingForm() {
   const t = useTranslations('admin');
@@ -25,6 +36,7 @@ export function SmtpMarketingForm() {
   const [html, setHtml] = useState('');
   const [csvFileName, setCsvFileName] = useState('');
   const [rows, setRows] = useState<CsvRow[]>([]);
+  const [csvReady, setCsvReady] = useState(false);
   const [csvError, setCsvError] = useState('');
   const [checked, setChecked] = useState(false);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -50,6 +62,7 @@ export function SmtpMarketingForm() {
     const file = event.target.files?.[0];
     setCsvFileName(file?.name ?? '');
     setRows([]);
+    setCsvReady(false);
     setChecked(false);
     setSummary(null);
     setProgress(0);
@@ -78,6 +91,7 @@ export function SmtpMarketingForm() {
           return;
         }
         setRows(result.data);
+        setCsvReady(true);
       },
       error: (error) => setCsvError(t('smtpCsvParseError', { error: error.message }))
     });
@@ -93,6 +107,7 @@ export function SmtpMarketingForm() {
     setSendError('');
     const totals: SendSummary = { sent: 0, failed: 0, skipped: 0 };
     let processed = 0;
+    let userFacingError = t('smtpSendError');
 
     try {
       for (let offset = 0; offset < eligibleRecipients.length; offset += BATCH_SIZE) {
@@ -102,8 +117,19 @@ export function SmtpMarketingForm() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ senderEmail, appPassword, subject: subject.trim(), html, recipients: batch })
         });
-        const result = await response.json() as Partial<SendSummary> & { error?: string };
-        if (!response.ok) throw new Error(t(`smtpError_${result.error ?? 'unknown'}`));
+        let result: Partial<SendSummary> & { error?: string };
+        try {
+          result = await response.json() as Partial<SendSummary> & { error?: string };
+        } catch {
+          throw new Error('smtp_response_invalid');
+        }
+        if (!response.ok) {
+          const errorCode = result.error ?? 'unknown';
+          userFacingError = SMTP_ERROR_CODES.has(errorCode)
+            ? t(`smtpError_${errorCode}`)
+            : t('smtpError_unknown');
+          throw new Error('smtp_request_failed');
+        }
 
         totals.sent += result.sent ?? 0;
         totals.failed += result.failed ?? 0;
@@ -113,7 +139,9 @@ export function SmtpMarketingForm() {
         setSummary({ ...totals });
       }
     } catch (error) {
-      setSendError(error instanceof Error ? error.message : t('smtpSendError'));
+      setSendError(error instanceof Error && error.message === 'smtp_request_failed'
+        ? userFacingError
+        : t('smtpSendError'));
     } finally {
       setSending(false);
     }
@@ -156,7 +184,7 @@ export function SmtpMarketingForm() {
               <Upload aria-hidden="true" />{t('smtpChooseCsv')}
             </Button>
             <span className="text-sm text-muted-foreground">{csvFileName || t('smtpNoFile')}</span>
-            <Button disabled={!rows.length || Boolean(csvError)} onClick={() => setChecked(true)} type="button">
+            <Button disabled={!csvReady || Boolean(csvError)} onClick={() => setChecked(true)} type="button">
               <CheckCircle2 aria-hidden="true" />{t('smtpCheckCsv')}
             </Button>
           </div>

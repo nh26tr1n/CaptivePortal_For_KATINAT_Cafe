@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import Papa from 'papaparse';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { createClient } from '@/lib/supabase/server';
-import type { CustomerSummary } from '@/services/customer.service';
+import type { CustomerSummary } from '@/types';
 
 const PAGE_SIZE = 1000;
 

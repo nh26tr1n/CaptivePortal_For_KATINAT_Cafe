@@ -4,7 +4,7 @@ import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAx
 import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartEmptyState } from '@/components/charts/useNoChartData';
-import type { CountPoint } from '@/services/analytics.service';
+import type { CountPoint } from '@/types';
 
 export function DurationDistributionChart({ data }: { data: CountPoint[] | null }) {
   const t = useTranslations('admin');

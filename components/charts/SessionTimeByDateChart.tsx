@@ -4,7 +4,7 @@ import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, X
 import { useLocale, useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartEmptyState } from '@/components/charts/useNoChartData';
-import type { DateSessionPoint } from '@/services/analytics.service';
+import type { DateSessionPoint } from '@/types';
 
 export function SessionTimeByDateChart({ data }: { data: DateSessionPoint[] | null }) {
   const t = useTranslations('admin');

@@ -9,8 +9,8 @@ import { PeakHoursChart } from '@/components/charts/PeakHoursChart';
 import { SessionTimeByDateChart } from '@/components/charts/SessionTimeByDateChart';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { Card, CardContent } from '@/components/ui/card';
-import { resolveDateRange } from '@/services/date-range';
-import { getAnalyticsData } from '@/services/analytics.service';
+import { resolveDateRange } from '@/lib/services/date-range';
+import { getAnalyticsData } from '@/lib/services/analytics.service';
 
 type PageProps = { searchParams?: Record<string, string | string[] | undefined> };
 

@@ -1,8 +1,8 @@
 import { getTranslations } from 'next-intl/server';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { SessionsTable } from '@/components/admin/SessionsTable';
-import { resolveDateRange } from '@/services/date-range';
-import { getAdminSessions } from '@/services/session.service';
+import { resolveDateRange } from '@/lib/services/date-range';
+import { getAdminSessions } from '@/lib/services/session.service';
 
 type PageProps = { searchParams?: Record<string, string | string[] | undefined> };
 const PAGE_SIZE = 20;

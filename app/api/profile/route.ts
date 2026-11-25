@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import type { Database } from '@/types/database';
+import type { Database } from '@/types';
 
 const profileSchema = z.object({
   full_name: z.string().trim().max(100).optional(),

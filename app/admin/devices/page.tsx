@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { DevicesTable } from '@/components/admin/DevicesTable';
-import { getAdminDevices } from '@/services/customer.service';
+import { getAdminDevices } from '@/lib/services/customer.service';
 
 export default async function DevicesPage() {
   const [t, devices] = await Promise.all([

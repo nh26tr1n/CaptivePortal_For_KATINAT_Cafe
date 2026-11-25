@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { ConsentMetrics } from '@/services/analytics.service';
+import type { ConsentMetrics } from '@/types';
 
 export function ConsentRateCard({ data }: { data: ConsentMetrics | null }) {
   const t = useTranslations('admin');

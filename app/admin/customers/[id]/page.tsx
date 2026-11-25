@@ -3,7 +3,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getAdminCustomerDetails } from '@/services/customer.service';
+import { getAdminCustomerDetails } from '@/lib/services/customer.service';
 
 type PageProps = { params: { id: string } };
 
@@ -19,7 +19,9 @@ export default async function CustomerDetailsPage({ params }: PageProps) {
 
   const language = locale === 'vi' ? 'vi-VN' : 'en-US';
   const formatDate = (value: string | null) => value
-    ? new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(value))
+    ? Number.isNaN(new Date(value).getTime())
+      ? common('noData')
+      : new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(value))
     : common('noData');
   const loginLabel = (value: string) => value === 'google' ? t('loginGoogle') : value === 'facebook' ? t('loginFacebook') : value === 'email' ? t('loginEmail') : common('noData');
   const genderLabel = (value: string | null) => {
@@ -47,7 +49,10 @@ export default async function CustomerDetailsPage({ params }: PageProps) {
     return value === 'unknown' ? t('deviceUnknown') : common('noData');
   };
   const duration = (start: string, end: string) => {
-    const minutes = Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60_000));
+    const startTime = new Date(start).getTime();
+    const endTime = new Date(end).getTime();
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) return common('noData');
+    const minutes = Math.max(0, Math.round((endTime - startTime) / 60_000));
     const hours = Math.floor(minutes / 60);
     return hours ? t('durationHoursMinutes', { hours, minutes: minutes % 60 }) : t('durationMinutes', { minutes });
   };
@@ -57,14 +62,14 @@ export default async function CustomerDetailsPage({ params }: PageProps) {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t('customerDetails')}</h1>
-        <p className="mt-1 break-all text-sm text-muted-foreground">{customer.full_name ?? customer.email ?? customer.id}</p>
+        <p className="mt-1 break-all text-sm text-muted-foreground">{customer.full_name?.trim() || customer.email || customer.id}</p>
       </div>
 
       <Card>
         <CardHeader><CardTitle>{t('customerInformation')}</CardTitle></CardHeader>
         <CardContent className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
           <Detail label={t('customerId')} value={customer.id} />
-          <Detail label={t('fullName')} value={customer.full_name ?? common('noData')} />
+          <Detail label={t('fullName')} value={customer.full_name?.trim() || common('noData')} />
           <Detail label={t('email')} value={customer.email ?? common('noData')} />
           <Detail label={t('gender')} value={genderLabel(customer.gender)} />
           <Detail label={t('ageGroup')} value={ageLabel(customer.age_group)} />

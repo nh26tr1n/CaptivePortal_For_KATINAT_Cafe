@@ -4,7 +4,7 @@ import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recha
 import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartEmptyState } from '@/components/charts/useNoChartData';
-import type { CountPoint } from '@/services/analytics.service';
+import type { CountPoint } from '@/types';
 
 export function LoginMethodChart({ data }: { data: CountPoint[] | null }) {
   const t = useTranslations('admin');

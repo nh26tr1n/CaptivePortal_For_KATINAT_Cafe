@@ -1,6 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { CustomersTable } from '@/components/admin/CustomersTable';
-import { getAdminCustomers } from '@/services/customer.service';
+import { getAdminCustomers } from '@/lib/services/customer.service';
 
 type PageProps = { searchParams?: Record<string, string | string[] | undefined> };
 const PAGE_SIZE = 20;

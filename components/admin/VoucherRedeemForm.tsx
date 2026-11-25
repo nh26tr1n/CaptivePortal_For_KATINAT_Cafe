@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import { Label } from '@/components/ui/label';
 export function VoucherRedeemForm() {
   const t = useTranslations('admin');
   const common = useTranslations('common');
+  const router = useRouter();
   const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -30,6 +32,7 @@ export function VoucherRedeemForm() {
       setCode('');
       setEmail('');
       toast.success(t('voucherRedeemed'));
+      router.refresh();
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'redemption_failed';
       const message = reason === 'already_redeemed' ? t('voucherAlreadyRedeemed')

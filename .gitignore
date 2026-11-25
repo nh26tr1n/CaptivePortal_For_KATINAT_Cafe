@@ -4,7 +4,8 @@ out/
 build/
 coverage/
 .env*
-!.env.local.example
+!.env.example
 pnpm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
+.DS_Store

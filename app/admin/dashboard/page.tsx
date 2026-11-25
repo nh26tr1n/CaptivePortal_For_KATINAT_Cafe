@@ -2,8 +2,8 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { DateRangeFilter } from '@/components/dashboard/DateRangeFilter';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { createClient } from '@/lib/supabase/server';
-import { resolveDateRange } from '@/services/date-range';
-import { getVouchers } from '@/services/voucher.service';
+import { resolveDateRange } from '@/lib/services/date-range';
+import { getVouchers } from '@/lib/services/voucher.service';
 import { CreditCard, Mail, TicketCheck, QrCode } from 'lucide-react';
 
 type PageProps = { searchParams?: Record<string, string | string[] | undefined> };
@@ -40,68 +40,74 @@ function readSummary(value: unknown): Summary | null {
   };
 }
 
-function emptySummary(): Summary {
-  return {
-    total_sessions: 0,
-    unique_guests: 0,
-    avg_duration_min: null,
-    daily_sessions: [],
-    online_now: 0,
-    returning_guests: 0,
-    marketing_subscribers: 0
-  };
-}
-
 function percentageDelta(current: number | null, previous: number | null) {
   if (current === null || previous === null || previous === 0) return null;
   return ((current - previous) / Math.abs(previous)) * 100;
 }
 
 export default async function DashboardPage({ searchParams = {} }: PageProps) {
-  try {
   const [t, common, locale] = await Promise.all([
     getTranslations('admin'),
     getTranslations('common'),
     getLocale()
   ]);
   const range = resolveDateRange(searchParams);
-  const supabase = await createClient();
-  const [currentResult, previousResult, durationResult, previousDurationResult, locationsResult, hotspotsResult, voucherData] = await Promise.all([
-    supabase.rpc('get_dashboard_summary', { from_ts: range.fromTimestamp, to_ts: range.toExclusiveTimestamp }),
-    supabase.rpc('get_dashboard_summary', { from_ts: range.previousFromTimestamp, to_ts: range.previousToExclusiveTimestamp }),
-    supabase.rpc('get_dashboard_total_duration', { from_ts: range.fromTimestamp, to_ts: range.toExclusiveTimestamp }),
-    supabase.rpc('get_dashboard_total_duration', { from_ts: range.previousFromTimestamp, to_ts: range.previousToExclusiveTimestamp }),
-    supabase.from('locations').select('id', { count: 'exact', head: true }),
-    supabase.from('hotspots').select('id', { count: 'exact', head: true }),
-    getVouchers()
-  ]);
-  const failedResults = [
-    ['current dashboard summary', currentResult.error],
-    ['previous dashboard summary', previousResult.error],
-    ['dashboard session duration', durationResult.error],
-    ['previous dashboard session duration', previousDurationResult.error],
-    ['dashboard locations', locationsResult.error],
-    ['dashboard hotspots', hotspotsResult.error]
-  ] as const;
-  for (const [operation, error] of failedResults) {
-    if (error) {
-      console.error(`[admin/dashboard] ${operation} request failed`, error);
-      throw new Error(`Could not load ${operation}: ${error.message}`);
+  let current: Summary | null = null;
+  let previous: Summary | null = null;
+  let totalDuration: number | null = null;
+  let previousDuration: number | null = null;
+  let locationsCount: number | null = null;
+  let hotspotsCount: number | null = null;
+  let voucherStats: Awaited<ReturnType<typeof getVouchers>>['stats'] = null;
+
+  try {
+    const supabase = await createClient();
+    const [currentResult, previousResult, durationResult, previousDurationResult, locationsResult, hotspotsResult, voucherData] = await Promise.all([
+      supabase.rpc('get_dashboard_summary', { from_ts: range.fromTimestamp, to_ts: range.toExclusiveTimestamp }),
+      supabase.rpc('get_dashboard_summary', { from_ts: range.previousFromTimestamp, to_ts: range.previousToExclusiveTimestamp }),
+      supabase.rpc('get_dashboard_total_duration', { from_ts: range.fromTimestamp, to_ts: range.toExclusiveTimestamp }),
+      supabase.rpc('get_dashboard_total_duration', { from_ts: range.previousFromTimestamp, to_ts: range.previousToExclusiveTimestamp }),
+      supabase.from('locations').select('id', { count: 'exact', head: true }),
+      supabase.from('hotspots').select('id', { count: 'exact', head: true }),
+      getVouchers()
+    ]);
+
+    const failedResults = [
+      ['current dashboard summary', currentResult.error],
+      ['previous dashboard summary', previousResult.error],
+      ['dashboard session duration', durationResult.error],
+      ['previous dashboard session duration', previousDurationResult.error],
+      ['dashboard locations', locationsResult.error],
+      ['dashboard hotspots', hotspotsResult.error]
+    ] as const;
+    for (const [operation, error] of failedResults) {
+      if (error) {
+        console.error(`[admin/dashboard] ${operation} request failed`, error);
+        throw new Error(`Could not load ${operation}: ${error.message}`);
+      }
     }
+
+    current = readSummary(currentResult.data);
+    previous = readSummary(previousResult.data);
+    if (!current || !previous) {
+      console.error('[admin/dashboard] dashboard summary returned empty or invalid data', {
+        current: currentResult.data,
+        previous: previousResult.data
+      });
+    }
+    totalDuration = typeof durationResult.data === 'number' && Number.isFinite(durationResult.data)
+      ? durationResult.data
+      : null;
+    previousDuration = typeof previousDurationResult.data === 'number' && Number.isFinite(previousDurationResult.data)
+      ? previousDurationResult.data
+      : null;
+    locationsCount = locationsResult.count;
+    hotspotsCount = hotspotsResult.count;
+    voucherStats = voucherData.stats;
+  } catch (error) {
+    console.error('[admin/dashboard] failed to load dashboard data', error);
   }
 
-  const parsedCurrent = readSummary(currentResult.data);
-  const parsedPrevious = readSummary(previousResult.data);
-  if (!parsedCurrent || !parsedPrevious) {
-    console.error('[admin/dashboard] dashboard summary returned empty or invalid data', {
-      current: currentResult.data,
-      previous: previousResult.data
-    });
-  }
-  const current = parsedCurrent ?? emptySummary();
-  const previous = parsedPrevious ?? emptySummary();
-  const totalDuration = durationResult.data;
-  const previousDuration = previousDurationResult.data;
   const dailyAverage = current?.daily_sessions?.length
     ? current.daily_sessions.reduce((sum, item) => sum + item.count, 0) / current.daily_sessions.length
     : null;
@@ -123,26 +129,26 @@ export default async function DashboardPage({ searchParams = {} }: PageProps) {
     { label: t('currentlyOnline'), value: countValue(current?.online_now ?? null), delta: null },
     { label: t('returningGuests'), value: countValue(current?.returning_guests ?? null), delta: percentageDelta(current?.returning_guests ?? null, previous?.returning_guests ?? null) },
     { label: t('marketingSubscribers'), value: countValue(current?.marketing_subscribers ?? null), delta: null },
-    { label: t('totalLocations'), value: countValue(locationsResult.count), delta: null },
-    { label: t('totalHotspots'), value: countValue(hotspotsResult.count), delta: null }
+    { label: t('totalLocations'), value: countValue(locationsCount), delta: null },
+    { label: t('totalHotspots'), value: countValue(hotspotsCount), delta: null }
   ];
 
   const businessCards = [
     {
       label: t('voucherIssuedCount'),
-      value: voucherData.stats ? voucherData.stats.total.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US') : common('noData'),
+      value: voucherStats ? voucherStats.total.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US') : common('noData'),
       icon: TicketCheck,
       accent: 'indigo' as const
     },
     {
       label: t('voucherUsedCount'),
-      value: voucherData.stats ? voucherData.stats.redeemed.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US') : common('noData'),
+      value: voucherStats ? voucherStats.redeemed.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US') : common('noData'),
       icon: CreditCard,
       accent: 'emerald' as const
     },
     {
       label: t('currentActiveQr'),
-      value: voucherData.stats ? voucherData.stats.active.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US') : common('noData'),
+      value: voucherStats ? voucherStats.active.toLocaleString(locale === 'vi' ? 'vi-VN' : 'en-US') : common('noData'),
       icon: QrCode,
       accent: 'amber' as const
     },
@@ -169,13 +175,9 @@ export default async function DashboardPage({ searchParams = {} }: PageProps) {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         {cards.map((card) => <StatCard key={card.label} {...card} />)}
       </div>
-      {(current.total_sessions ?? 0) === 0 && (
+      {(current?.total_sessions === null || current?.total_sessions === 0) && (
         <p className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">{common('noData')}</p>
       )}
     </div>
   );
-  } catch (error) {
-    console.error('[admin/dashboard] failed to render dashboard', error);
-    throw error;
-  }
 }

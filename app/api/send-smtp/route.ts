@@ -38,6 +38,20 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#39;');
 }
 
+function getSmtpErrorDetails(error: unknown) {
+  if (!(error instanceof Error)) {
+    return { code: 'unknown', command: null, responseCode: null, message: String(error) };
+  }
+
+  const smtpError = error as NodeJS.ErrnoException & { command?: string; responseCode?: number };
+  return {
+    code: smtpError.code ?? 'unknown',
+    command: smtpError.command ?? null,
+    responseCode: smtpError.responseCode ?? null,
+    message: error.message
+  };
+}
+
 export async function POST(request: Request) {
   const origin = request.headers.get('origin');
   if (origin && origin !== new URL(request.url).origin) {
@@ -78,76 +92,76 @@ export async function POST(request: Request) {
   try {
     await smtp.verify();
   } catch (error) {
-    console.error('[POST /api/send-smtp] SMTP authentication failed', error);
+    const details = getSmtpErrorDetails(error);
+    const authenticationError = details.code === 'EAUTH';
+    console.error('[POST /api/send-smtp] SMTP verification failed', details);
     smtp.close();
-    return NextResponse.json({ error: 'smtp_auth_failed' }, { status: 502 });
+    return NextResponse.json(
+      { error: authenticationError ? 'smtp_auth_failed' : 'smtp_connection_failed' },
+      { status: 502 }
+    );
   }
 
-  let supabase;
   try {
-    supabase = await createClient();
+    const supabase = await createClient();
+
+    const emails = [...new Set(eligibleRecipients.map((recipient) => recipient.email.trim()))];
+    const { data: customerRows, error: consentError } = await supabase
+      .from('admin_customer_overview')
+      .select('email, marketing_consented')
+      .in('email', emails);
+
+    if (consentError) {
+      console.error('[POST /api/send-smtp] Could not verify current marketing consent', {
+        code: consentError.code,
+        message: consentError.message
+      });
+      return NextResponse.json({ error: 'consent_lookup_failed' }, { status: 503 });
+    }
+
+    const consentByEmail = new Map<string, boolean>();
+    for (const customer of customerRows ?? []) {
+      if (!customer.email) continue;
+      const key = customer.email.trim().toLowerCase();
+      const currentlyConsented = customer.marketing_consented === true;
+      consentByEmail.set(key, (consentByEmail.get(key) ?? true) && currentlyConsented);
+    }
+
+    let sent = 0;
+    let failed = 0;
+    let skipped = recipients.length - eligibleRecipients.length;
+    const htmlTemplate = normalizeEmailHtml(html);
+
+    for (let index = 0; index < eligibleRecipients.length; index += 1) {
+      const recipient = eligibleRecipients[index];
+      const normalizedEmail = recipient.email.trim().toLowerCase();
+      if (consentByEmail.get(normalizedEmail) !== true) {
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        const personalizedHtml = htmlTemplate.replace(/\{\{\s*name\s*\}\}/gi, escapeHtml(recipient.name.trim()));
+        await smtp.sendMail({
+          from: senderEmail,
+          to: recipient.email.trim(),
+          subject,
+          html: personalizedHtml
+        });
+        sent += 1;
+      } catch (error) {
+        failed += 1;
+        console.error('[POST /api/send-smtp] Email delivery failed', getSmtpErrorDetails(error));
+      }
+
+      if (index < eligibleRecipients.length - 1) await wait(200);
+    }
+
+    return NextResponse.json({ sent, failed, skipped });
   } catch (error) {
-    console.error('[POST /api/send-smtp] Could not create Supabase client', error);
-    smtp.close();
+    console.error('[POST /api/send-smtp] Unexpected marketing email failure', getSmtpErrorDetails(error));
     return NextResponse.json({ error: 'database_unavailable' }, { status: 503 });
-  }
-
-  const emails = [...new Set(eligibleRecipients.map((recipient) => recipient.email.trim()))];
-  const { data: customerRows, error: consentError } = await supabase
-    .from('admin_customer_overview')
-    .select('email, marketing_consented')
-    .in('email', emails);
-
-  if (consentError) {
-    console.error('[POST /api/send-smtp] Could not verify current marketing consent', {
-      code: consentError.code,
-      message: consentError.message
-    });
+  } finally {
     smtp.close();
-    return NextResponse.json({ error: 'consent_lookup_failed' }, { status: 503 });
   }
-
-  const consentByEmail = new Map<string, boolean>();
-  for (const customer of customerRows ?? []) {
-    if (!customer.email) continue;
-    const key = customer.email.trim().toLowerCase();
-    const currentlyConsented = customer.marketing_consented === true;
-    consentByEmail.set(key, (consentByEmail.get(key) ?? true) && currentlyConsented);
-  }
-
-  let sent = 0;
-  let failed = 0;
-  let skipped = recipients.length - eligibleRecipients.length;
-  const htmlTemplate = normalizeEmailHtml(html);
-
-  for (let index = 0; index < eligibleRecipients.length; index += 1) {
-    const recipient = eligibleRecipients[index];
-    const normalizedEmail = recipient.email.trim().toLowerCase();
-    if (consentByEmail.get(normalizedEmail) !== true) {
-      skipped += 1;
-      continue;
-    }
-
-    try {
-      const personalizedHtml = htmlTemplate.replace(/\{\{\s*name\s*\}\}/gi, escapeHtml(recipient.name.trim()));
-      await smtp.sendMail({
-        from: senderEmail,
-        to: recipient.email.trim(),
-        subject,
-        html: personalizedHtml
-      });
-      sent += 1;
-    } catch (error) {
-      failed += 1;
-      console.error('[POST /api/send-smtp] Email delivery failed', {
-        code: (error as NodeJS.ErrnoException).code,
-        message: error instanceof Error ? error.message : 'Unknown SMTP error'
-      });
-    }
-
-    if (index < eligibleRecipients.length - 1) await wait(200);
-  }
-
-  smtp.close();
-  return NextResponse.json({ sent, failed, skipped });
 }

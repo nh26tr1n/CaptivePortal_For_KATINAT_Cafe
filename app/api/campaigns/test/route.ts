@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth/requireAdmin';
 import { sendEmail } from '@/lib/brevo/client';
-import { campaignContentSchema } from '@/lib/validations/campaign';
+import { campaignContentSchema } from '@/lib/validations';
 
 export async function POST(request: Request) {
   const user = await requireAdmin();

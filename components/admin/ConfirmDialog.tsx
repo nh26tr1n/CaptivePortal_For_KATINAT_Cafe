@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle, LoaderCircle } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -27,11 +28,12 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel,
-  cancelLabel = 'Hủy',
+  cancelLabel,
   busy = false,
   onCancel,
   onConfirm
 }: ConfirmDialogProps) {
+  const common = useTranslations('common');
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && !busy && onCancel()}>
       <DialogContent className="border-slate-200">
@@ -43,7 +45,7 @@ export function ConfirmDialog({
           <DialogDescription className="text-slate-600">{description}</DialogDescription>
         </DialogHeader>
         <DialogFooter className="mt-2 gap-2 sm:gap-2">
-          <Button disabled={busy} onClick={onCancel} type="button" variant="outline">{cancelLabel}</Button>
+          <Button disabled={busy} onClick={onCancel} type="button" variant="outline">{cancelLabel ?? common('cancel')}</Button>
           <Button disabled={busy} onClick={onConfirm} type="button" variant="destructive">
             {busy ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
             {confirmLabel}

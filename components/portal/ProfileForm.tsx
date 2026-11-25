@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Database } from '@/types/database';
+import type { Database } from '@/types';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 

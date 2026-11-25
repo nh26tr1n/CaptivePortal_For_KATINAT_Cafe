@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { CustomerSummary } from '@/services/customer.service';
+import type { CustomerSummary } from '@/types';
 
 type CustomersTableProps = {
   customers: CustomerSummary[];
@@ -53,7 +53,9 @@ export function CustomersTable({ customers, count, page, pageSize, filters }: Cu
 
   function formatDate(value: string | null) {
     if (!value) return common('noData');
-    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(value));
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return common('noData');
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
   }
 
   function formatDuration(value: number | null) {
@@ -180,7 +182,7 @@ export function CustomersTable({ customers, count, page, pageSize, filters }: Cu
             <TableBody>
               {customers.length ? customers.map((customer) => (
                 <TableRow
-                  aria-label={t('openCustomerDetails', { name: customer.full_name ?? customer.email ?? customer.id.slice(0, 8) })}
+                  aria-label={t('openCustomerDetails', { name: customer.full_name?.trim() || customer.email || customer.id.slice(0, 8) })}
                   className="cursor-pointer"
                   key={customer.id}
                   onClick={() => router.push(`/admin/customers/${customer.id}`)}
@@ -194,7 +196,7 @@ export function CustomersTable({ customers, count, page, pageSize, filters }: Cu
                   tabIndex={0}
                 >
                   <TableCell><Link className="font-mono text-xs underline-offset-4 hover:underline" href={`/admin/customers/${customer.id}`} onClick={(event) => event.stopPropagation()}>{customer.id.slice(0, 8)}</Link></TableCell>
-                  <TableCell className="font-medium">{customer.full_name ?? common('noData')}</TableCell>
+                  <TableCell className="font-medium">{customer.full_name?.trim() || common('noData')}</TableCell>
                   <TableCell>{customer.email ?? common('noData')}</TableCell>
                   <TableCell>{translateGender(customer.gender)}</TableCell>
                   <TableCell>{translateAge(customer.age_group)}</TableCell>

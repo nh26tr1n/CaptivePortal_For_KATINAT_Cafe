@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import type { Database } from '@/types/database';
+import type { Database } from '@/types';
 
 export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(new URL('/portal', request.url));

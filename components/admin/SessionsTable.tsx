@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import type { SessionListItem } from '@/services/session.service';
+import type { SessionListItem } from '@/types';
 
 type SessionsTableProps = {
   sessions: SessionListItem[];
@@ -51,12 +51,18 @@ export function SessionsTable({ sessions, count, page, pageSize, filters }: Sess
 
   function formatDate(value: string | null) {
     if (!value) return common('noData');
-    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(value));
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return common('noData');
+    return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
   }
 
   function formatDuration(session: SessionListItem) {
     const end = session.ended_at ?? session.last_seen;
-    const minutes = Math.max(0, Math.round((new Date(end).getTime() - new Date(session.started_at).getTime()) / 60_000));
+    if (!end || !session.started_at) return common('noData');
+    const endTime = new Date(end).getTime();
+    const startTime = new Date(session.started_at).getTime();
+    if (!Number.isFinite(endTime) || !Number.isFinite(startTime)) return common('noData');
+    const minutes = Math.max(0, Math.round((endTime - startTime) / 60_000));
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
     return hours ? t('durationHoursMinutes', { hours, minutes: remainingMinutes }) : t('durationMinutes', { minutes });
@@ -98,7 +104,7 @@ export function SessionsTable({ sessions, count, page, pageSize, filters }: Sess
 
   function exportCsv() {
     const csv = Papa.unparse(sessions.map((session) => ({
-      [t('customer')]: session.customer?.email ?? session.customer?.full_name ?? '',
+      [t('customer')]: session.customer?.email || session.customer?.full_name || '',
       [t('device')]: deviceLabel(session.device),
       [t('loginMethod')]: loginLabel(session.login_method),
       [t('startTime')]: formatDate(session.started_at),
@@ -173,7 +179,7 @@ export function SessionsTable({ sessions, count, page, pageSize, filters }: Sess
                 <TableRow key={session.id}>
                   <TableCell className="min-w-40">
                     <Link className="font-medium underline-offset-4 hover:underline" href={`/admin/customers/${session.customer_id}`}>
-                      {session.customer?.email ?? session.customer?.full_name ?? common('noData')}
+                      {session.customer?.email || session.customer?.full_name || common('noData')}
                     </Link>
                   </TableCell>
                   <TableCell>{deviceLabel(session.device)}</TableCell>

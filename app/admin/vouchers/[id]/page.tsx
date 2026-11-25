@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getVoucherDetails } from '@/services/voucher.service';
+import { getVoucherDetails } from '@/lib/services/voucher.service';
 import { DeleteVoucherButton } from '@/components/admin/DeleteVoucherButton';
 
 type PageProps = { params: { id: string } };
@@ -18,9 +18,12 @@ export default async function VoucherDetailsPage({ params }: PageProps) {
   if (!data) notFound();
   const language = locale === 'vi' ? 'vi-VN' : 'en-US';
   const { voucher, redemptions } = data;
-  const formatDate = (value: string | null) => value
-    ? new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(value))
-    : common('noData');
+  const formatDate = (value: string | null) => {
+    if (!value) return common('noData');
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return common('noData');
+    return new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Ho_Chi_Minh' }).format(date);
+  };
   const discount = voucher.discount_type === 'percent'
     ? `${new Intl.NumberFormat(language, { maximumFractionDigits: 2 }).format(voucher.discount_value)}%`
     : new Intl.NumberFormat(language, { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(voucher.discount_value);
